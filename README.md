@@ -18,11 +18,11 @@ bin/process
 4. -w or --width: The width in pixels that output images will be, where the height will be proportionally calculated. DEFAULT: 1920 (px)
 5. -q or --quality: For JPEG images, the output image quality compared to the original (0-100)%
 
-## Examples
+## Example Executions
 
-~ >node bin/process -p ~/Pictures/DSC_0001.jpg
-~ >node bin/process -p ~/Pictures/DSC_0001.jpg -o resize
-~ >node bin/process -d ~/Pictures
-~ >node bin/process -d ~/Pictures -o resize
-~ >node bin/process -d ~/Pictures -o resize -q 50
-~ >node bin/process -d ~/Pictures -o resize -q 50 -w 800
+- ~>node bin/process -p ~/Pictures/DSC_0001.jpg
+- ~>node bin/process -p ~/Pictures/DSC_0001.jpg -o resize
+- ~>node bin/process -d ~/Pictures
+- ~>node bin/process -d ~/Pictures -o resize
+- ~>node bin/process -d ~/Pictures -o resize -q 50
+- ~>node bin/process -d ~/Pictures -o resize -q 50 -w 800
