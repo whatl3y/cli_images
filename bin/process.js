@@ -5,10 +5,10 @@ var async = require('async');
 var ProcessImages = require('../libs/ProcessImages.js');
 
 //example calls
-//node bin/image_process_lwip -p ~/Pictures/DSC_0017.jpg
-//node bin/image_process_lwip -p ~/Pictures/DSC_0017.jpg -o resize
-//node bin/image_process_lwip -d ~/Pictures
-//node bin/image_process_lwip -d ~/Pictures -o resize
+//node bin/process -p ~/Pictures/DSC_0001.jpg
+//node bin/process -p ~/Pictures/DSC_0001.jpg -o resize
+//node bin/process -d ~/Pictures
+//node bin/process -d ~/Pictures -o resize
 var imageDir = argv.d || argv.directory || null;
 var imagePath = argv.p || argv.path || null;
 var op = argv.o || argv.operation || null;
