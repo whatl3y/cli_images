@@ -51,7 +51,7 @@ if (imageDir) {
     return sendInfo(err);
   }
 } else if (imagePath) {
-  if (isValidExtension(file)) new ProcessImages(imagePath,{width:newImageWidths, quality:newImageQuality}).process(op,sendInfo);
+  if (isValidExtension(imagePath)) new ProcessImages(imagePath,{width:newImageWidths, quality:newImageQuality}).process(op,sendInfo);
   else sendInfo(new Error("INVALID EXTENSION: " + imagePath));
 } else {
   sendInfo(new Error("No image path or directory provided. Please use -d/--directory or -p/--path arguments to specify a directory or path to process."));

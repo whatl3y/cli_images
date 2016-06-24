@@ -1,0 +1,10 @@
+# ignore
+*.log
+*.DS_Store
+/tests
+/logs
+/files
+/documentation
+/node_modules
+/.env_windows
+/.env_linux
