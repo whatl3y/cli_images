@@ -1,0 +1,23 @@
+{
+  "name": "cli_images",
+  "version": "0.0.1",
+  "description": "Easy CLI to process images in bulk.",
+  "main": "bin/process",
+  "engines": {
+    "node": ">=0.12"
+  },
+  "repository": {
+    "type": "git",
+    "url" : "https://github.com/whatl3y/cli_images.git"
+  },
+  "scripts": {
+    "test": "mocha"
+  },
+  "dependencies": {
+    "async": "^1.5.2",
+    "minimist": "latest",
+    "lwip": "latest"
+  },
+  "author": "Lance Whatley",
+  "license": "ISC"
+}
