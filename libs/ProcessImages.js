@@ -1,3 +1,4 @@
+var fs = require("fs");
 var path = require("path");
 var async = require("async");
 var lwip = require("lwip");
@@ -9,16 +10,17 @@ module.exports = ProcessImages = function(filePath,options) {
   this.WIDTH = Number(options.width || 1920);
   this.QUALITY = Number(options.quality || 50);
 
+  this.outputPath = options.output || path.dirname(filePath);
   this.path = filePath;
 
-  this.operationProcessFunction = function(image,operation) {
+  this.commandProcessFunction = function(image,command) {
     return function(_callback) {
       async.waterfall([
         function(__callback) {
           image.clone(__callback);
         },
         function(clonedImage,__callback) {
-          self.operations[operation](clonedImage,__callback);
+          self.commands[command](clonedImage,__callback);
         }
       ],
         function(err,result) {
@@ -28,19 +30,26 @@ module.exports = ProcessImages = function(filePath,options) {
     };
   }
 
-  this.process = function(operation,cb) {
-    cb = (typeof operation === "function") ? operation : cb;
-    operation = (typeof operation === "function") ? null : operation;
+  this.process = function(command,cb) {
+    cb = (typeof command === "function") ? command : cb;
+    command = (typeof command === "function") ? null : command;
 
     var go = function(image,callback) {
       var processParallelFunctions = [];
-      if (typeof operation === "string" && operation) {
-        processParallelFunctions.push(self.operationProcessFunction(image,operation));
-      } else {
-        for (var _operation in self.operations) {
+      if (typeof command === "string" && command) {
+        processParallelFunctions.push(self.commandProcessFunction(image,command));
+      } else if (command instanceof Array) {
+        for (var _i = 0; _i<command.length; _i++) {
           processParallelFunctions.push((function() {
-            var op = _operation;
-            return self.operationProcessFunction(image,op);
+            var co = command[_i];
+            return self.commandProcessFunction(image,co);
+          })());
+        }
+      } else {
+        for (var _command in self.commands) {
+          processParallelFunctions.push((function() {
+            var co = _command;
+            return self.commandProcessFunction(image,co);
           })());
         }
       }
@@ -183,13 +192,23 @@ module.exports = ProcessImages = function(filePath,options) {
   }
 
   this.newPath = function(newpathstring) {
-    var extension = path.extname(this.path);
-    var lastPeriod = this.path.lastIndexOf(".");
+    var outputPathDir = this.outputPath;
 
-    return this.path.substring(0,lastPeriod) + newpathstring + extension;
+    try {
+      fs.lstatSync(outputPathDir);
+    } catch(e) {
+      //assume an error means doesn't exist, so we need to create the directory here
+      fs.mkdirSync(outputPathDir);
+    }
+
+    var filename = path.basename(this.path);
+    var extension = path.extname(this.path);
+    var lastPeriod = filename.lastIndexOf(".");
+
+    return path.join(this.outputPath,filename.substring(0,lastPeriod)) + newpathstring + extension;
   }
 
-  this.operations = {
+  this.commands = {
     resize: function(image,cb) {
       async.waterfall([
         function(callback) {
