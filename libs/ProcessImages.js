@@ -13,8 +13,26 @@ module.exports = ProcessImages = function(filePath,options) {
   this.outputPath = options.output || path.dirname(filePath);
   this.path = filePath;
 
-  this.commandProcessFunction = function(image,command) {
-    console.log(command);
+  //NOTE: all 'image' or 'newImage' objects from this point forward
+  //are lwip-opened images unless otherwise specified.
+
+
+  this.commandProcessFunction = function(image,command,clone) {
+    if (clone) {
+      return function(newImage,path,_callback) {
+        async.waterfall([
+          function(__callback) {
+            (newImage || image).clone(__callback);
+          }
+        ],
+          function(err,clonedImage) {
+            if (err) return _callback(err);
+            return self.commands[command](clonedImage,path,_callback);
+          }
+        );
+      };
+    }
+
     return function(newImage,path,_callback) {
       path = path || "";
       self.commands[command](newImage || image,path,_callback);
@@ -30,6 +48,8 @@ module.exports = ProcessImages = function(filePath,options) {
       if (typeof command === "string" && command) {
         processParallelFunctions.push(self.commandProcessFunction(image,command));
       } else if (command instanceof Array) {
+        //if multiple commands were passed in via an array, perform
+        //all commands on the image(s) collectively.
         for (var _i = 0; _i<command.length; _i++) {
           processParallelFunctions.push((function() {
             var co = command[_i];
@@ -37,10 +57,14 @@ module.exports = ProcessImages = function(filePath,options) {
           })());
         }
       } else {
+        //if a command was not passed in, perform all commands individually
+        //on the image(s) and output them to the output directory. We don't
+        //want to perform any other operations after this else loop, so
+        //return async.eachOf.
         var newFilePaths = [];
         return async.eachOf(self.commands,function(foo,co,_callback) {
           async.waterfall([].concat(processParallelFunctions,
-            self.commandProcessFunction(null,co),
+            self.commandProcessFunction(null,co,true),
             function(image,appendToFile,__callback) {
               var newpath = self.newPath(appendToFile);
               self.write(image,newpath,function(err) {
@@ -58,17 +82,9 @@ module.exports = ProcessImages = function(filePath,options) {
             return callback(err,newFilePaths);
           }
         );
-
-        // for (var _command in self.commands) {
-        //   processParallelFunctions.push((function() {
-        //     var co = _command;
-        //     return self.commandProcessFunction(image,co);
-        //   })());
-        // }
-        //
-        // return callback(err,results);
       }
 
+      //perform the operations as appropriate
       async.waterfall([].concat(processParallelFunctions,
         function(image,appendToFile,_callback) {
           var newpath = self.newPath(appendToFile);
@@ -81,6 +97,8 @@ module.exports = ProcessImages = function(filePath,options) {
       });
     }
 
+    //open our image using lwip then pass the go function definition
+    //as the second function to perform all operations.
     async.waterfall([
       function(callback) {
         lwip.open(self.path,callback);
