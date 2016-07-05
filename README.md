@@ -37,21 +37,21 @@ the height will be proportionally calculated. DEFAULT: 1920 (px)
 
 ## Operations
 
-resize
-sharpenBy20
-sharpenBy40
-sharpenBy60
-lightenBy20
-lightenBy40
-lightenBy60
-saturateBy20
-saturateBy40
-saturateBy60
-rotate90
-rotate180
-rotate270
-cropSquareTopLeft
-cropSquareTopRight
-cropSquareBottomLeft
-cropSquareBottomRight
-cropSquareCenter
+* resize
+* sharpenBy20
+* sharpenBy40
+* sharpenBy60
+* lightenBy20
+* lightenBy40
+* lightenBy60
+* saturateBy20
+* saturateBy40
+* saturateBy60
+* rotate90
+* rotate180
+* rotate270
+* cropSquareTopLeft
+* cropSquareTopRight
+* cropSquareBottomLeft
+* cropSquareBottomRight
+* cropSquareCenter
