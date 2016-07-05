@@ -13,21 +13,30 @@ module.exports = ProcessImages = function(filePath,options) {
   this.outputPath = options.output || path.dirname(filePath);
   this.path = filePath;
 
-  this.commandProcessFunction = function(image,command) {
-    return function(_callback) {
-      async.waterfall([
-        function(__callback) {
-          image.clone(__callback);
-        },
-        function(clonedImage,__callback) {
-          self.commands[command](clonedImage,__callback);
-        }
-      ],
-        function(err,result) {
-          return _callback(err,result);
-        }
-      );
-    };
+  //NOTE: all 'image' or 'newImage' objects from this point forward
+  //are lwip-opened images unless otherwise specified.
+
+
+  this.commandProcessFunction = function(image,command,clone) {
+    if (clone) {
+      return function(newImage,path,_callback) {
+        async.waterfall([
+          function(__callback) {
+            (newImage || image).clone(__callback);
+          }
+        ],
+          function(err,clonedImage) {
+            if (err) return _callback(err);
+            return self.commands[command](clonedImage,path,_callback);
+          }
+        );
+      };
+    }
+
+    return function(newImage,path,_callback) {
+      path = path || "";
+      self.commands[command](newImage || image,path,_callback);
+    }
   }
 
   this.process = function(command,cb) {
@@ -35,10 +44,12 @@ module.exports = ProcessImages = function(filePath,options) {
     command = (typeof command === "function") ? null : command;
 
     var go = function(image,callback) {
-      var processParallelFunctions = [];
+      var processParallelFunctions = [function(_callback) {_callback(null,image,"")}];
       if (typeof command === "string" && command) {
         processParallelFunctions.push(self.commandProcessFunction(image,command));
       } else if (command instanceof Array) {
+        //if multiple commands were passed in via an array, perform
+        //all commands on the image(s) collectively.
         for (var _i = 0; _i<command.length; _i++) {
           processParallelFunctions.push((function() {
             var co = command[_i];
@@ -46,19 +57,48 @@ module.exports = ProcessImages = function(filePath,options) {
           })());
         }
       } else {
-        for (var _command in self.commands) {
-          processParallelFunctions.push((function() {
-            var co = _command;
-            return self.commandProcessFunction(image,co);
-          })());
-        }
+        //if a command was not passed in, perform all commands individually
+        //on the image(s) and output them to the output directory. We don't
+        //want to perform any other operations after this else loop, so
+        //return async.eachOf.
+        var newFilePaths = [];
+        return async.eachOf(self.commands,function(foo,co,_callback) {
+          async.waterfall([].concat(processParallelFunctions,
+            self.commandProcessFunction(null,co,true),
+            function(image,appendToFile,__callback) {
+              var newpath = self.newPath(appendToFile);
+              self.write(image,newpath,function(err) {
+                return __callback(err,newpath);
+              });
+            }),
+          function(err,newFilePath) {
+            if (err) return _callback(err);
+
+            newFilePaths.push(newFilePath);
+            _callback();
+          });
+        },
+          function(err) {
+            return callback(err,newFilePaths);
+          }
+        );
       }
 
-      async.parallel(processParallelFunctions,function(err,results) {
+      //perform the operations as appropriate
+      async.waterfall([].concat(processParallelFunctions,
+        function(image,appendToFile,_callback) {
+          var newpath = self.newPath(appendToFile);
+          self.write(image,newpath,function(err) {
+            return _callback(err,newpath);
+          });
+        }),
+      function(err,results) {
         return callback(err,results);
       });
     }
 
+    //open our image using lwip then pass the go function definition
+    //as the second function to perform all operations.
     async.waterfall([
       function(callback) {
         lwip.open(self.path,callback);
@@ -93,16 +133,10 @@ module.exports = ProcessImages = function(filePath,options) {
       },
       function(newImage,callback) {
         self.resize(newImage,callback);
-      },
-      function(newImage,callback) {
-        var newpath = self.newPath(appendToFile);
-        self.write(newImage,newpath,function(err) {
-          return callback(err,newpath);
-        });
       }
     ],
-      function(err,newImagePath) {
-        return cb(err,newImagePath);
+      function(err,newImage) {
+        return cb(err,newImage,appendToFile);
       }
     );
   }
@@ -114,16 +148,10 @@ module.exports = ProcessImages = function(filePath,options) {
       },
       function(newImage,callback) {
         self.resize(newImage,callback);
-      },
-      function(newImage,callback) {
-        var newpath = self.newPath(appendToFile);
-        self.write(newImage,newpath,function(err) {
-          return callback(err,newpath);
-        });
       }
     ],
-      function(err,newImagePath) {
-        return cb(err,newImagePath);
+      function(err,newImage) {
+        return cb(err,newImage,appendToFile);
       }
     );
   }
@@ -135,16 +163,10 @@ module.exports = ProcessImages = function(filePath,options) {
       },
       function(newImage,callback) {
         self.resize(newImage,callback);
-      },
-      function(newImage,callback) {
-        var newpath = self.newPath(appendToFile);
-        self.write(newImage,newpath,function(err) {
-          return callback(err,newpath);
-        });
       }
     ],
-      function(err,newImagePath) {
-        return cb(err,newImagePath);
+      function(err,newImage) {
+        return cb(err,newImage,appendToFile);
       }
     );
   }
@@ -156,16 +178,10 @@ module.exports = ProcessImages = function(filePath,options) {
       },
       function(newImage,callback) {
         self.resize(newImage,callback);
-      },
-      function(newImage,callback) {
-        var newpath = self.newPath(appendToFile);
-        self.write(newImage,newpath,function(err) {
-          return callback(err,newpath);
-        });
       }
     ],
-      function(err,newImagePath) {
-        return cb(err,newImagePath);
+      function(err,newImage) {
+        return cb(err,newImage,appendToFile);
       }
     );
   }
@@ -177,16 +193,10 @@ module.exports = ProcessImages = function(filePath,options) {
       },
       function(newImage,callback) {
         self.resize(newImage,callback);
-      },
-      function(newImage,callback) {
-        var newpath = self.newPath(appendToFile);
-        self.write(newImage,newpath,function(err) {
-          return callback(err,newpath);
-        });
       }
     ],
-      function(err,newImagePath) {
-        return cb(err,newImagePath);
+      function(err,newImage) {
+        return cb(err,newImage,appendToFile);
       }
     );
   }
@@ -209,73 +219,67 @@ module.exports = ProcessImages = function(filePath,options) {
   }
 
   this.commands = {
-    resize: function(image,cb) {
+    resize: function(image,append,cb) {
       async.waterfall([
         function(callback) {
           self.resize(image,callback);
-        },
-        function(newImage,callback) {
-          var newpath = self.newPath("_resized");
-          self.write(newImage,newpath,function(err) {
-            return callback(err,newpath);
-          });
         }
       ],
-        function(err,newImagePath) {
-          return cb(err,newImagePath);
+        function(err,newImage) {
+          return cb(err,newImage,append + "_resized");
         }
       );
     },
 
-    sharpenBy20: function(image,cb) {
-      self.sharpen(image,"_sharpenBy20",20,cb);
+    sharpenBy20: function(image,append,cb) {
+      self.sharpen(image,append + "_sharpenBy20",20,cb);
     },
 
-    sharpenBy40: function(image,cb) {
-      self.sharpen(image,"_sharpenBy40",40,cb);
+    sharpenBy40: function(image,append,cb) {
+      self.sharpen(image,append + "_sharpenBy40",40,cb);
     },
 
-    sharpenBy60: function(image,cb) {
-      self.sharpen(image,"_sharpenBy60",60,cb);
+    sharpenBy60: function(image,append,cb) {
+      self.sharpen(image,append + "_sharpenBy60",60,cb);
     },
 
-    lightenBy20: function(image,cb) {
-      self.lighten(image,"_lightenBy20",0.2,cb);
+    lightenBy20: function(image,append,cb) {
+      self.lighten(image,append + "_lightenBy20",0.2,cb);
     },
 
-    lightenBy40: function(image,cb) {
-      self.lighten(image,"_lightenBy40",0.4,cb);
+    lightenBy40: function(image,append,cb) {
+      self.lighten(image,append + "_lightenBy40",0.4,cb);
     },
 
-    lightenBy60: function(image,cb) {
-      self.lighten(image,"_lightenBy60",0.6,cb);
+    lightenBy60: function(image,append,cb) {
+      self.lighten(image,append + "_lightenBy60",0.6,cb);
     },
 
-    saturateBy20: function(image,cb) {
-      self.saturate(image,"_saturateBy20",0.2,cb);
+    saturateBy20: function(image,append,cb) {
+      self.saturate(image,append + "_saturateBy20",0.2,cb);
     },
 
-    saturateBy40: function(image,cb) {
-      self.saturate(image,"_saturateBy40",0.4,cb);
+    saturateBy40: function(image,append,cb) {
+      self.saturate(image,append + "_saturateBy40",0.4,cb);
     },
 
-    saturateBy60: function(image,cb) {
-      self.saturate(image,"_saturateBy60",0.6,cb);
+    saturateBy60: function(image,append,cb) {
+      self.saturate(image,append + "_saturateBy60",0.6,cb);
     },
 
-    rotate90: function(image,cb) {
-      self.rotate(image,"_rotate90",90,cb);
+    rotate90: function(image,append,cb) {
+      self.rotate(image,append + "_rotate90",90,cb);
     },
 
-    rotate180: function(image,cb) {
-      self.rotate(image,"_rotate180",180,cb);
+    rotate180: function(image,append,cb) {
+      self.rotate(image,append + "_rotate180",180,cb);
     },
 
-    rotate270: function(image,cb) {
-      self.rotate(image,"_rotate270",270,cb);
+    rotate270: function(image,append,cb) {
+      self.rotate(image,append + "_rotate270",270,cb);
     },
 
-    cropSquareTopLeft: function(image,cb) {
+    cropSquareTopLeft: function(image,append,cb) {
       var hw = self.heightWidthRatio(image);
       var totalWidth = (hw <= 1) ? Math.floor(image.width()*hw) : image.width();
       var totalHeight = (hw <= 1) ? image.height() : Math.floor(image.width()*(1/hw));
@@ -285,10 +289,10 @@ module.exports = ProcessImages = function(filePath,options) {
       var right = totalWidth;
       var bottom = totalHeight;
 
-      self.cropSquare(image,"_topleft",left,top,right,bottom,cb);
+      self.cropSquare(image,append + "_topleft",left,top,right,bottom,cb);
     },
 
-    cropSquareTopRight: function(image,cb) {
+    cropSquareTopRight: function(image,append,cb) {
       var hw = self.heightWidthRatio(image);
       var totalWidth = (hw <= 1) ? Math.floor(image.width()*hw) : image.width();
       var totalHeight = (hw <= 1) ? image.height() : Math.floor(image.width()*(1/hw));
@@ -298,10 +302,10 @@ module.exports = ProcessImages = function(filePath,options) {
       var right = image.width();
       var bottom = totalHeight;
 
-      self.cropSquare(image,"_topright",left,top,right,bottom,cb);
+      self.cropSquare(image,append + "_topright",left,top,right,bottom,cb);
     },
 
-    cropSquareBottomLeft: function(image,cb) {
+    cropSquareBottomLeft: function(image,append,cb) {
       var hw = self.heightWidthRatio(image);
       var totalWidth = (hw <= 1) ? Math.floor(image.width()*hw) : image.width();
       var totalHeight = (hw <= 1) ? image.height() : Math.floor(image.width()*(1/hw));
@@ -311,10 +315,10 @@ module.exports = ProcessImages = function(filePath,options) {
       var right = totalWidth;
       var bottom = image.height();
 
-      self.cropSquare(image,"_bottomleft",left,top,right,bottom,cb);
+      self.cropSquare(image,append + "_bottomleft",left,top,right,bottom,cb);
     },
 
-    cropSquareBottomRight: function(image,cb) {
+    cropSquareBottomRight: function(image,append,cb) {
       var hw = self.heightWidthRatio(image);
       var totalWidth = (hw <= 1) ? Math.floor(image.width()*hw) : image.width();
       var totalHeight = (hw <= 1) ? image.height() : Math.floor(image.width()*(1/hw));
@@ -324,10 +328,10 @@ module.exports = ProcessImages = function(filePath,options) {
       var right = image.width();
       var bottom = image.height();
 
-      self.cropSquare(image,"_bottomright",left,top,right,bottom,cb);
+      self.cropSquare(image,append + "_bottomright",left,top,right,bottom,cb);
     },
 
-    cropSquareCenter: function(image,cb) {
+    cropSquareCenter: function(image,append,cb) {
       var hw = self.heightWidthRatio(image);
       var totalWidth = (hw <= 1) ? Math.floor(image.width()*hw) : image.width();
       var totalHeight = (hw <= 1) ? image.height() : Math.floor(image.width()*(1/hw));
@@ -337,7 +341,7 @@ module.exports = ProcessImages = function(filePath,options) {
       var right = left + totalWidth;
       var bottom = top + totalHeight;
 
-      self.cropSquare(image,"_center",left,top,right,bottom,cb);
+      self.cropSquare(image,append + "_center",left,top,right,bottom,cb);
     }
   }
 }
