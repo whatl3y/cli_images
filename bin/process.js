@@ -19,7 +19,7 @@ var newImageQuality = argv.q || argv.quality || null;
 var validImageExtension = {'.png':true, '.jpg':true, '.gif':true};
 
 var isValidExtension = function(file) {
-  return !!validImageExtension[path.extname(file)];
+  return !!validImageExtension[path.extname(file).toLowerCase()];
 }
 
 var sendInfo = function(err,imageFilePaths) {
